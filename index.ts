@@ -75,11 +75,12 @@ function many<T>(parser: Parser<T>): Parser<T[]> {
     let nextCtx = ctx;
     while (true) {
       const res = parser(nextCtx);
+      console.log(res);
       if (!res.success) break;
       values.push(res.value);
       nextCtx = res.ctx;
     }
-    return success(ctx, values);
+    return success(nextCtx, values);
   };
 }
 
@@ -121,7 +122,10 @@ function expr(ctx: Ctx): Result<Expr> {
 
 const ident = regex(/[a-zA-Z][a-zA-Z0-9]*/g, "identifier");
 
-const numberLiteral = map(regex(/[0-9](.[0-9]*)?/g, "number"), parseFloat);
+const numberLiteral = map(
+  regex(/[+\-]?[0-9]+(\.[0-9]*)?/g, "number"),
+  parseFloat
+);
 
 const trailingArg = map(
   sequence<any>([str(","), expr]),
@@ -134,8 +138,11 @@ const args = map(
 );
 
 const call = map(
-  sequence<any>([ident, str("("), optional(args), str(")")]),
-  ([fnName, _laren, argList, _rparen]) => ({ target: fnName, args: argList })
+  sequence<any>([ident, str("("), args, str(")")]),
+  ([fnName, _laren, argList, _rparen]) => ({
+    target: fnName,
+    args: argList || []
+  })
 );
 
 function parse(text: string) {
@@ -144,4 +151,4 @@ function parse(text: string) {
   throw `Parse error, expected ${res.expected} at char ${res.ctx.index}`;
 }
 
-console.log(parse("Foo(Bar(2,3))"));
+console.log(JSON.stringify(parse("Foo(Bar(2,3))"), null, 2));
