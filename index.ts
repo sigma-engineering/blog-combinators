@@ -27,16 +27,19 @@ function failure<T>(ctx: Ctx, expected: string): Failure {
   return { success: false, expected, ctx };
 }
 
+// match an exact string or fail
 function str(match: string): Parser<string> {
   return ctx => {
-    if (ctx.text.substring(ctx.index, ctx.index + match.length) === match) {
-      return success({ ...ctx, index: ctx.index + match.length }, match);
+    const endIdx = ctx.index + match.length;
+    if (ctx.text.substring(ctx.index, endIdx) === match) {
+      return success({ ...ctx, index: endIdx }, match);
     } else {
       return failure(ctx, match);
     }
   };
 }
 
+// match a regexp or fail
 function regex(re: RegExp, expected: string): Parser<string> {
   return ctx => {
     re.lastIndex = ctx.index;
@@ -49,9 +52,10 @@ function regex(re: RegExp, expected: string): Parser<string> {
   };
 }
 
+// try each matcher in order, starting from the same point in the input
+// or fail to match any parsers, returning the last failure.
 function any<T>(parsers: Parser<T>[]): Parser<T> {
   return ctx => {
-    // try each matcher in order, starting from the same point in the input
     let furthestRes: Result<T> | null = null;
     for (const parser of parsers) {
       const res = parser(ctx);
@@ -59,11 +63,11 @@ function any<T>(parsers: Parser<T>[]): Parser<T> {
       if (!furthestRes || furthestRes.ctx.index < res.ctx.index)
         furthestRes = res;
     }
-    // or fail to match any parsers, returning the last failure.
     return furthestRes!;
   };
 }
 
+// match a parser, or succeed with null
 function optional<T>(parser: Parser<T>) {
   return any([parser, ctx => success(ctx, null)]);
 }
@@ -75,7 +79,6 @@ function many<T>(parser: Parser<T>): Parser<T[]> {
     let nextCtx = ctx;
     while (true) {
       const res = parser(nextCtx);
-      console.log(res);
       if (!res.success) break;
       values.push(res.value);
       nextCtx = res.ctx;
@@ -84,6 +87,7 @@ function many<T>(parser: Parser<T>): Parser<T[]> {
   };
 }
 
+// look for an exact sequence of parsers, or fail
 function sequence<T>(parsers: Parser<T>[]): Parser<T[]> {
   return ctx => {
     let values: T[] = [];
@@ -139,7 +143,7 @@ const args = map(
 
 const call = map(
   sequence<any>([ident, str("("), args, str(")")]),
-  ([fnName, _laren, argList, _rparen]) => ({
+  ([fnName, _lparen, argList, _rparen]): Call => ({
     target: fnName,
     args: argList || []
   })
