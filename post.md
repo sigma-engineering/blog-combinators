@@ -1,16 +1,16 @@
-# Writing a Parser Combinators from Scratch in TypeScript
+# Writing a Parser Combinator from Scratch in TypeScript
 
-(TODO: expand intro)
+There are countless ways to parse programming languages, and deciding which approach to take is a huge topic that thousands of articles have been written on. In this blog post, we'll explore the approach we take to parsing formulas in Sigma, and write a small parser for a simple language from scratch.
 
-...
+## Background
 
-At Sigma we chose to write our own parser, so we could have full control over error handling and annotations. Our parser is recursive descent with backtracking, built using combinators. The code here isn't the Sigma parser, but a similar one written for a simpler grammar, to show the basic concepts. By the end of this article we'll have written a small parser capable of parsing a simple language that supports function calls and number literals, like `Foo(Bar(1,2,3))`.
+At Sigma, we have our own small language to let users write formulas in worksheets, which is very similar to what users are familiar with in Excel or Google Docs. We chose to write our own parser, so we could have full control over error handling and annotations. Our parser is recursive descent with backtracking, built using combinators. The code here isn't the Sigma parser, but a similar one written for a simpler grammar, to show the basic concepts. By the end of this article we'll have written a small parser capable of parsing a simple language that supports function calls and number literals, like `Foo(Bar(1,2,3))`.
 
 This article assumes the reader has some previous experience with basic parsing concepts, which you can read more about at (list of helpful links). The full source code for this project is available at (link to github / gist).
 
-Since we're trying to parse an input string and return an AST [Abstract Syntax Tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree), that seems like a good place to start defining some types.
-
 ## Let's start coding
+
+Since we're trying to parse an input string and return an AST [Abstract Syntax Tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree), that seems like a good place to start defining our types.
 
 For each part of the grammar we're creating, we want to:
 
@@ -18,8 +18,12 @@ For each part of the grammar we're creating, we want to:
 2. On success: return a `Success` containing a `value` and a new `Context` (the new position in the input string after what we just parsed) to continue parsing from.
 3. On failure, we return a `Failure` object with the position and reason for failure.
 
-```text
-    (TODO: pretty lucidchart diagram illustrating the previous paragraph)
+```
+        Input Context -----> Parser -----> Success
+                                \
+                                 \
+                                  -----> Failure
+
          /
 (\__/)  /
 (•ㅅ•) /
@@ -91,7 +95,7 @@ function parseCow(ctx: Context): Parser<string> {
 }
 ```
 
-Okay, but that's a lot of code just to parse the word 'cow'. Luckily javascript is a language that supports first class functions. By writing functions that return functions, we can create parsers in a declarative way. This is what combinators are all about.
+Okay, but that's a lot of code just to parse the word 'cow'. Luckily javascript is a language that supports first class functions. By writing functions that return functions, we can create parsers in a declarative way. These are the "combinators" this article is about.
 
 ```ts
 function str(match: string): Parser<string> {
@@ -123,7 +127,7 @@ const parseCowSentence = function(ctx) {
   const spaceRes1 = space(cowRes.ctx); // must pass the previous result's ctx into the next parser
   if (!spaceRes1.success) return spaceRes1;
 
-  const saysRes = says(spaceRes1.ctx); // and again. you can see this is getting tedous and is error prone
+  const saysRes = says(spaceRes1.ctx); // and again. you can see this is getting tedious and is error prone
   if (!saysRes.success) return saysRes;
 
   const spaceRes2 = space(saysRes.ctx); // i'm getting really tired of typing this pattern
@@ -133,6 +137,7 @@ const parseCowSentence = function(ctx) {
   if (!mooRes.success) return mooRes;
 
   return success(mooRes.ctx, [
+    // phew, we made it.
     // i couldn't think of anything interesting to do with this grammar so let's just return the strings we parsed.
     cowRes.value,
     spaceRes1.value,
@@ -162,22 +167,78 @@ function sequence<T>(parsers: Parser<T>[]): Parser<T[]> {
 }
 ```
 
+```
+                              ______________________________________________
+                             |                   Sequence:                  |
+        Input Context -----> |  Parser1 ---> Parser2 ---> ... ---> ParserN  | -----> Success
+                             |______________________________________________|
+                                                   \
+                                                    \
+                                                     -----> Failure
+
+         /
+(\__/)  /
+(•ㅅ•) /
+/ 　 づ
+```
+
 Using this combinator, we can express the previous parser in a much more terse manner:
 
 ```ts
 const parseCowSentence = sequence([cow, space, says, space, moo]);
 ```
 
-To write our little language, we're going to need a handful more combinators that we'll compose together to create a parser that supports our grammar. The full implementation of each function is included at the end of the article.
+To write our little language, we're going to need a handful more combinators that we'll compose together to create a parser that supports our grammar.
+
+Here's once called `any` that takes an array of parsers, and tries them all until one succeeds.
+
+```
+                              ____________________
+                             |        Any:       |
+        Input Context -----> |                   | -----> Success
+                             |  Parser1          |
+                             |  or Parser2       |
+                             |  ...              |
+                             |  or ParserN       |
+                             |___________________|
+                                         \
+                                          \
+                                           -----> Failure
+
+         /
+(\__/)  /
+(•ㅅ•) /
+/ 　 づ
+```
+
+Here's once called `many` that take on parser, and gathers as many repeats
+
+```
+                              ____________________
+                             |        Many:      |
+        Input Context -----> |                   | -----> Success
+                             |  Parser x N       |
+                             |___________________|
+
+                                           (cannot fail, only returns [] if Parser fails)
+
+
+         /
+(\__/)  /
+(•ㅅ•) /
+/ 　 づ
+```
+
+Here's all the combinators we'll need for our language. The full implementation of each function is included at the end of the article.
 
 ```ts
 
-// match a regexp or fail
+// match a regexp
 function regex(re: RegExp, expected: string): Parser<string> {
   ...
 }
 
-// look for an exact sequence of parsers, or fail
+// look for an exact sequence of parsers
 function sequence<T>(parsers: Parser<T>[]): Parser<T[]> {
   ...
 }
@@ -191,7 +252,7 @@ function any<T>(parsers: Parser<T>[]): Parser<T> {
   ...
 }
 
-// match a parser, or succeed with null
+// match a parser, or succeed with null if not found. cannot fail.
 function optional<T>(parser: Parser<T>) {
   ...
 }
@@ -201,17 +262,15 @@ function many<T>(parser: Parser<T>): Parser<T[]> {
   ...
 }
 
-// a convenience method that will map a Success to callback, to let us do common things like build AST nodes from input strings. failure is passed through
+// a convenience method that will map a Success to callback, to let us do common things like build AST nodes from input strings. Failures are passed through untouched.
 function map<A, B>(parser: Parser<A>, fn: (val: A) => B): Parser<B> {
   ...
 }
 ```
 
-I've put the full source code of each combinator at the bottom of the article.
-
 Now lets put our parser together. We're going to support a language that has function calls and number literals, like this:
 
-```text
+```
 Foo(Bar(1,2,3))
 ```
 
@@ -229,7 +288,7 @@ We want to parse this into a syntax tree that looks like this:
 
 We could describe this language in (loosely) [EBNF](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) like this:
 
-```text
+```
 program = expr
 expr = call | number
 call = ident '(' [ argList ] ')'
@@ -320,16 +379,17 @@ All parsing approaches have pros and cons, and so do combinators:
 
 ### Pros:
 
+- simple contract
 - expressive, declarative
-- functional, immutable
-- actual language grammar implementation can be terse, maps closesly to EBNF for the language
+- functional, immutable, composable
+- actual language grammar implementation can be terse, maps closely to EBNF for the language
 - doesn't rely on exception handling
 - backtracking is trivially easy, doesn't require managing a stack
 
 ### Cons:
 
-- lots of indirection / abstraction
-- the `sequence` combinator can be difficult to type, unless you have a nice way of expressing mapped tuples in your language's type system
+- introduces a layer of indirection / abstraction
+- the type of the `sequence` combinator may be difficult to express strictly enough
 - requires a language with first class functions
 
 # Appendix
