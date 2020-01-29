@@ -156,3 +156,5 @@ function parse(text: string) {
   if (res.success) return res.value;
   throw `Parse error, expected ${res.expected} at char ${res.ctx.index}`;
 }
+
+console.log(JSON.stringify(parse("Foo(Bar(2,3))"), null, 2));
