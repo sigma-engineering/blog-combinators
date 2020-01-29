@@ -1,6 +1,6 @@
 # Writing a Parser Combinators from Scratch in TypeScript
 
-(todo: expand intro)
+(TODO: expand intro)
 
 ...
 
@@ -12,14 +12,27 @@ Since we're trying to parse an input string and return an AST [Abstract Syntax T
 
 ## Let's start coding
 
-For each part of the grammar we're creating, we want to take an input (string and position), and return a result, succeeding if we found what we were looking for, and failing if we didn't. And when we succeed, we will also return a new `Context` (basically just a new position in the input string) to continue parsing from. Parsers that come after this will continue from that point. By structuring the code this way, we can make all of our types immutable (`Readonly` in typescript).
+For each part of the grammar we're creating, we want to:
+
+1. Take an input `Context` (containing the string of our code, and position to start parsing from)
+2. On success: return a `Success` containing a `value` and a new `Context` (the new position in the input string after what we just parsed) to continue parsing from.
+3. On failure, we return a `Failure` object with the position and reason for failure.
+
+```text
+    (TODO: pretty lucidchart diagram illustrating the previous paragraph)
+         /
+(\__/)  /
+(•ㅅ•) /
+/ 　 づ
+```
 
 ```ts
 // every parsing function will have this signature
-type Parser<T> = (ctx: Ctx) => Result<T>;
+type Parser<T> = (ctx: Context) => Result<T>;
 
-// to track progress through our input string
-type Ctx = Readonly<{
+// to track progress through our input string.
+// we should make this immutable, because we can.
+type Context = Readonly<{
   text: string; // the full input string
   index: number; // our current position in it
 }>;
@@ -42,11 +55,11 @@ type Failure = Readonly<{
 }>;
 
 // some convenience methods to build `Result`s for us
-function success<T>(ctx: Ctx, value: T): Success<T> {
+function success<T>(ctx: Context, value: T): Success<T> {
   return { success: true, value, ctx };
 }
 
-function failure<T>(ctx: Ctx, expected: string): Failure {
+function failure<T>(ctx: Context, expected: string): Failure {
   return { success: false, expected, ctx };
 }
 ```
@@ -66,7 +79,7 @@ const result = parseCow(ctx);
 How would we implement `parseCow`?
 
 ```ts
-function parseCow(ctx: Ctx): Parser<string> {
+function parseCow(ctx: Context): Parser<string> {
   const match = "cow";
   const endIdx = ctx.index + match.length;
   if (ctx.text.substring(ctx.index, endIdx) === match) {

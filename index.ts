@@ -1,29 +1,29 @@
-type Parser<T> = (ctx: Ctx) => Result<T>;
+type Parser<T> = (ctx: Context) => Result<T>;
 
 type Result<T> = Success<T> | Failure;
 
 type Success<T> = Readonly<{
   success: true;
   value: T;
-  ctx: Ctx;
+  ctx: Context;
 }>;
 
 type Failure = Readonly<{
   success: false;
   expected: string;
-  ctx: Ctx;
+  ctx: Context;
 }>;
 
-type Ctx = Readonly<{
+type Context = Readonly<{
   text: string;
   index: number;
 }>;
 
-function success<T>(ctx: Ctx, value: T): Success<T> {
+function success<T>(ctx: Context, value: T): Success<T> {
   return { success: true, value, ctx };
 }
 
-function failure<T>(ctx: Ctx, expected: string): Failure {
+function failure<T>(ctx: Context, expected: string): Failure {
   return { success: false, expected, ctx };
 }
 
@@ -122,7 +122,7 @@ interface Call {
   args: Expr[];
 }
 
-function expr(ctx: Ctx): Result<Expr> {
+function expr(ctx: Context): Result<Expr> {
   return any<Expr>([call, numberLiteral])(ctx);
 }
 
