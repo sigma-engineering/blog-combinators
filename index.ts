@@ -1,23 +1,23 @@
-interface Ctx {
-  text: string;
-  index: number;
-}
-
 type Parser<T> = (ctx: Ctx) => Result<T>;
 
 type Result<T> = Success<T> | Failure;
 
-interface Success<T> {
+type Success<T> = Readonly<{
   success: true;
   value: T;
   ctx: Ctx;
-}
+}>;
 
-interface Failure {
+type Failure = Readonly<{
   success: false;
   expected: string;
   ctx: Ctx;
-}
+}>;
+
+type Ctx = Readonly<{
+  text: string;
+  index: number;
+}>;
 
 function success<T>(ctx: Ctx, value: T): Success<T> {
   return { success: true, value, ctx };
@@ -52,8 +52,10 @@ function regex(re: RegExp, expected: string): Parser<string> {
   };
 }
 
-// try each matcher in order, starting from the same point in the input
-// or fail to match any parsers, returning the last failure.
+// try each matcher in order, starting from the same point in the input. return the first one that succeeds.
+// or return the failure that got furthest in the input string.
+// which failure to return is a matter of taste, we prefer the furthest failure because.
+// it tends be the most useful / complete error message.
 function any<T>(parsers: Parser<T>[]): Parser<T> {
   return ctx => {
     let furthestRes: Result<T> | null = null;
@@ -154,5 +156,3 @@ function parse(text: string) {
   if (res.success) return res.value;
   throw `Parse error, expected ${res.expected} at char ${res.ctx.index}`;
 }
-
-console.log(JSON.stringify(parse("Foo(Bar(2,3))"), null, 2));
