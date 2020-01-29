@@ -1,6 +1,12 @@
 # Writing a Parser Combinator from Scratch in TypeScript
 
-There are countless ways to parse programming languages, and deciding which approach to take is a huge topic that thousands of articles have been written on. In this blog post, we'll explore the approach we take to parsing formulas in Sigma, and write a small parser for a simple language from scratch.
+There are countless ways to parse programming languages, and deciding which approach to take is a huge topic that thousands of articles have been written on. In this blog post, we'll explore the approach we take to parsing formulas in Sigma, using *parser combinators*.
+
+## Parser Combinators
+
+In short, parser combinators allow us to compose many simple functions together to define our entire grammar. The underlying algorithm is [Recursive Descent](https://en.wikipedia.org/wiki/Recursive_descent_parser) with backtracking, using techniques that are available to us in languages with first class functions, like javascript.
+
+By the end of this article we will have written a small parser for a simple language from scratch.
 
 ## Background
 
@@ -29,6 +35,8 @@ For each part of the grammar we're creating, we want to:
 (•ㅅ•) /
 / 　 づ
 ```
+
+By creating these parsers, and writing a variety of functions that _compose parsers together_, we will build our complete parser for this language.
 
 ```ts
 // every parsing function will have this signature
@@ -211,7 +219,7 @@ Here's once called `any` that takes an array of parsers, and tries them all unti
 / 　 づ
 ```
 
-Here's once called `many` that take on parser, and gathers as many repeats
+Here's another one called `many` that take on parser, and gathers as many repeats
 
 ```
                               ____________________
@@ -229,7 +237,7 @@ Here's once called `many` that take on parser, and gathers as many repeats
 / 　 づ
 ```
 
-Here's all the combinators we'll need for our language. The full implementation of each function is included at the end of the article.
+Below are all the combinators we'll need for our language. The full implementation of each function is included at the end of the article, but the understanding the intent of each should be enough to move forward.
 
 ```ts
 
