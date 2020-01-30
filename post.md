@@ -1,27 +1,70 @@
 # Writing a Parser Combinator from Scratch in TypeScript
 
-There are countless ways to parse programming languages, and deciding which approach to take is a huge topic that thousands of articles have been written on. In this blog post, we'll explore the approach we take to parsing formulas in Sigma, using *parser combinators*.
+There are countless ways to parse programming languages, and deciding which approach to take is a huge topic that thousands of articles have been written on. In this blog post, we'll explore the approach we take to parsing formulas in Sigma, using _parser combinators_.
 
 ## Parser Combinators
 
-In short, parser combinators allow us to compose many simple functions together to define our entire grammar. The underlying algorithm is [Recursive Descent](https://en.wikipedia.org/wiki/Recursive_descent_parser) with backtracking, using techniques that are available to us in languages with first class functions, like javascript.
+In short, parser combinators allow us to compose many simple functions together to define our entire grammar. The underlying algorithm is [Recursive Descent](https://en.wikipedia.org/wiki/Recursive_descent_parser) with backtracking, using techniques that are available to us in languages with first class functions like javascript.
 
 By the end of this article we will have written a small parser for a simple language from scratch.
 
 ## Background
 
-At Sigma, we have our own small language to let users write formulas in worksheets, which is very similar to what users are familiar with in Excel or Google Docs. We chose to write our own parser, so we could have full control over error handling and annotations. Our parser is recursive descent with backtracking, built using combinators. The code here isn't the Sigma parser, but a similar one written for a simpler grammar, to show the basic concepts. By the end of this article we'll have written a small parser capable of parsing a simple language that supports function calls and number literals, like `Foo(Bar(1,2,3))`.
+At Sigma, we have our own small language to let users write formulas in worksheets, which is very similar to what users are familiar with in Excel or Google Docs. We chose to write our own parser so we could have full control over error handling and annotations, which allow us to provide code completion even on malformed strings, like a formula that's only halfway written. Our parser uses recursive descent with backtracking, built using combinators. The code here isn't the Sigma parser, but a similar one written for a simpler grammar to show the basic concepts. In this article we'll walk through building a parser for a simple language that supports function calls and number literals, like `Foo(Bar(1,2,3))`.
 
 This article assumes the reader has some previous experience with basic parsing concepts, which you can read more about at (list of helpful links). The full source code for this project is available at (link to github / gist).
 
-## Let's start coding
+## The Goal
 
-Since we're trying to parse an input string and return an AST [Abstract Syntax Tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree), that seems like a good place to start defining our types.
+Our high level goal is to write a function that takes an input string, and returns an AST ([Abstract Syntax Tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree))
+
+```ts
+parse("Foo(Bar(1,2,3))");
+// {
+//   "target": "Foo",
+//   "args": [
+//     {
+//       "target": "Bar",
+//       "args": [
+//         1,
+//         2,
+//         3
+//       ]
+//     }
+//   ]
+// }
+```
+
+We could describe this language in (loosely) [EBNF](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) like this:
+Here's our basic plan for the language again, let's compare it to the actual code we'll write to parse it.
+
+```
+program = expr
+expr = call | number
+call = ident '(' [ argList ] ')'
+argList = arg (',' arg) *
+number = ... whatever number format we decide to support
+ident = ... idk, how about /[a-zA-Z][a-zA-Z0-9]+/
+```
+
+Our parser will use recursive descent, which means we're going to start from the highest level structure in the language (in this case, an expression), and branch out into the rest of the language definition based on the rules we've defined.
+
+The leaves of this tree, (`number`, `ident`, `'('` and `')'`) are called [terminal symbols](https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols), and are the only parts of the parser that directly consume characters from the input string.
+
+The rest of the parser is `non-terminals`, which means they represent combinations of other `symbols`. (in parsing terminology, a `symbol` is just a part of the language. each line in the ENBF above represents a symbol)
+
+Parsers commonly have a [lexer](https://en.wikipedia.org/wiki/Lexical_analysis) before the actual parser. In short, a lexer preprocesses an input string into a flat list of `tokens`. We can skip this process entirely because the code for our terminal symbols will consume the string directly.
+
+## Some Types
+
+We'll be writing this in a pure functional style, which means we want every function to return an immutable result, with no side effects. We want to traverse the input string from the top, all the way down the the leaf nodes (the `terminals`), and then return the parts of the tree from the bottom up.
+
+Functional purity is desirable here because it makes it easier to reason about the behaviour of a single parser and its output, instead of wondering what other non-obvious things could be happening in the parsing process outside of the code you're looking at.
 
 For each part of the grammar we're creating, we want to:
 
-1. Take an input `Context` (containing the string of our code, and position to start parsing from)
-2. On success: return a `Success` containing a `value` and a new `Context` (the new position in the input string after what we just parsed) to continue parsing from.
+1. Take an input `Context` (the string containing our code, and the position we're currently at)
+2. On success: return a `Success` containing a `value` and a new `Context` containing the next position in the string to continue parsing from.
 3. On failure, we return a `Failure` object with the position and reason for failure.
 
 ```
@@ -85,7 +128,7 @@ const result = parseCow(ctx);
 // { success: true, value: 'cow', ctx: {text: "cow says moo", index: 3}}
 //              ^            ^                                       ^
 //              |            |                                       |
-//            horray       our result                the new input position, after the word 'cow'
+//            hooray       our result                the new input position, after the word 'cow'
 ```
 
 How would we implement `parseCow`?
@@ -261,7 +304,7 @@ function any<T>(parsers: Parser<T>[]): Parser<T> {
 }
 
 // match a parser, or succeed with null if not found. cannot fail.
-function optional<T>(parser: Parser<T>) {
+function optional<T>(parser: Parser<T>): Parser<T | null> {
   ...
 }
 
@@ -276,25 +319,9 @@ function map<A, B>(parser: Parser<A>, fn: (val: A) => B): Parser<B> {
 }
 ```
 
-Now lets put our parser together. We're going to support a language that has function calls and number literals, like this:
+# Implementing the Grammar
 
-```
-Foo(Bar(1,2,3))
-```
-
-We want to parse this into a syntax tree that looks like this:
-
-```ts
-{
-  "target": "Foo",
-  "args": [{
-    "target": "Bar",
-    "args": [1, 2, 3]
-  }]
-}
-```
-
-We could describe this language in (loosely) [EBNF](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) like this:
+Here's our basic plan for the language again.
 
 ```
 program = expr
@@ -302,7 +329,10 @@ expr = call | number
 call = ident '(' [ argList ] ')'
 argList = arg (',' arg) *
 number = ... whatever number format we decide to support
+ident = ... idk, how about /[a-zA-Z][a-zA-Z0-9]+/
 ```
+
+Let's turn it into a working parser using the combinators at our disposal.
 
 ```ts
 // the two AST nodes for our tiny language
@@ -314,14 +344,14 @@ interface Call {
 }
 
 // our top level parsing function that takes care of creating a `Ctx`, and unboxing the final AST (or throwing)
-function parse(text: string) {
+function parse(text: string): Expr {
   const res = expr({ text, index: 0 });
   if (res.success) return res.value;
   throw `Parse error, expected ${res.expected} at char ${res.ctx.index}`;
 }
 
 // expr = call | numberLiteral
-function expr(ctx: Ctx): Result<Expr> {
+function expr(ctx: Context): Result<Expr> {
   return any<Expr>([call, numberLiteral])(ctx);
 }
 
@@ -337,21 +367,21 @@ const numberLiteral = map(
 
 // trailingArg = ',' arg
 const trailingArg = map(
-  sequence([str(","), expr]),
+  sequence<any>([str(","), expr]),
   // we map to this function that throws away the leading comma, returning only the argument expression
-  ([_comma, argExpr]) => argExpr as Expr
+  ([_comma, argExpr]): Expr[] => argExpr
 );
 
 // args = expr ( trailingArg ) *
 const args = map(
-  sequence([expr, many(trailingArg)]),
+  sequence<any>([expr, many(trailingArg)]),
   // we combine the first argument and the trailing arguments into a single array
-  ([arg1, rest]) => [arg1, ...rest] as Expr[]
+  ([arg1, rest]): Expr[] => [arg1, ...rest]
 );
 
 // call = ident "(" args ")"
 const call = map(
-  sequence([ident, str("("), args, str(")")]),
+  sequence<any>([ident, str("("), optional(args), str(")")]),
   // we throw away the lparen and rparen, and use the function name and arguments to build a Call AST node.
   ([fnName, _lparen, argList, _rparen]): Call => ({
     target: fnName,
@@ -387,22 +417,20 @@ All parsing approaches have pros and cons, and so do combinators:
 
 ### Pros:
 
-- simple contract
-- expressive, declarative
-- functional, immutable, composable
-- actual language grammar implementation can be terse, maps closely to EBNF for the language
-- doesn't rely on exception handling
-- backtracking is trivially easy, doesn't require managing a stack
+- Simple contract
+- Expressive, declarative
+- Functional, immutable, composable
+- Actual language grammar implementation can be terse, maps closely to EBNF for the language
+- Doesn't rely on exception handling
+- Backtracking is trivially easy, doesn't require managing a stack
 
 ### Cons:
 
-- introduces a layer of indirection / abstraction
-- the type of the `sequence` combinator may be difficult to express strictly enough
-- requires a language with first class functions
+- Introduces a layer of indirection / abstraction
+- Requires a language with first class functions
+- The type of the `sequence` combinator may be difficult to express strictly enough. It takes an array of parsers with mixed return types, and returns a list of results mapping directly to the output of those parsers, which is tricky to enforce in a type system. This can be overcome in typescript with function overloading, but it's outside the scope of this article, so I opted to use `any` and trust the ordering of parsers.
 
 # Appendix
-
-(more links)
 
 Here is the full implementation of the res of the combinators used above.
 
@@ -440,7 +468,7 @@ function any<T>(parsers: Parser<T>[]): Parser<T> {
 }
 
 // match a parser, or succeed with null
-function optional<T>(parser: Parser<T>) {
+function optional<T>(parser: Parser<T>): Parser<T | null> {
   return any([parser, ctx => success(ctx, null)]);
 }
 

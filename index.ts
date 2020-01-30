@@ -70,7 +70,7 @@ function any<T>(parsers: Parser<T>[]): Parser<T> {
 }
 
 // match a parser, or succeed with null
-function optional<T>(parser: Parser<T>) {
+function optional<T>(parser: Parser<T>): Parser<T | null> {
   return any([parser, ctx => success(ctx, null)]);
 }
 
@@ -114,7 +114,7 @@ function map<A, B>(parser: Parser<A>, fn: (val: A) => B): Parser<B> {
 
 // Begin language specific stuff
 
-// Our AST nodes
+// the two AST nodes for our tiny language
 type Expr = Call | number;
 
 interface Call {
@@ -122,39 +122,53 @@ interface Call {
   args: Expr[];
 }
 
+// our top level parsing function that takes care of creating a `Ctx`, and unboxing the final AST (or throwing)
+function parse(text: string): Expr {
+  const res = expr({ text, index: 0 });
+  if (res.success) return res.value;
+  throw `Parse error, expected ${res.expected} at char ${res.ctx.index}`;
+}
+
+// expr = call | numberLiteral
 function expr(ctx: Context): Result<Expr> {
   return any<Expr>([call, numberLiteral])(ctx);
 }
 
+// our regexp to match identifiers
 const ident = regex(/[a-zA-Z][a-zA-Z0-9]*/g, "identifier");
 
+// a regexp parser to match a number string
 const numberLiteral = map(
   regex(/[+\-]?[0-9]+(\.[0-9]*)?/g, "number"),
+  // which we map to javascript's built in `parseFloat` method
   parseFloat
 );
 
+// trailingArg = ',' arg
 const trailingArg = map(
   sequence<any>([str(","), expr]),
-  ([_comma, argExpr]) => argExpr as Expr
+  // we map to this function that throws away the leading comma, returning only the argument expression
+  ([_comma, argExpr]): Expr[] => argExpr
 );
 
+// args = expr ( trailingArg ) *
 const args = map(
   sequence<any>([expr, many(trailingArg)]),
-  ([arg1, rest]) => [arg1, ...rest] as Expr[]
+  // we combine the first argument and the trailing arguments into a single array
+  ([arg1, rest]): Expr[] => [arg1, ...rest]
 );
 
+// call = ident "(" args ")"
 const call = map(
-  sequence<any>([ident, str("("), args, str(")")]),
+  sequence<any>([ident, str("("), optional(args), str(")")]),
+  // we throw away the lparen and rparen, and use the function name and arguments to build a Call AST node.
   ([fnName, _lparen, argList, _rparen]): Call => ({
     target: fnName,
     args: argList || []
   })
 );
 
-function parse(text: string) {
-  const res = expr({ text, index: 0 });
-  if (res.success) return res.value;
-  throw `Parse error, expected ${res.expected} at char ${res.ctx.index}`;
-}
-
-console.log(JSON.stringify(parse("Foo(Bar(2,3))"), null, 2));
+console.log(JSON.stringify(parse("1"), null, 2));
+console.log(JSON.stringify(parse("Foo()"), null, 2));
+console.log(JSON.stringify(parse("Foo(Bar())"), null, 2));
+console.log(JSON.stringify(parse("Foo(Bar(1,2,3))"), null, 2));
