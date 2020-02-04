@@ -168,7 +168,11 @@ const call = map(
   })
 );
 
-console.log(JSON.stringify(parse("1"), null, 2));
-console.log(JSON.stringify(parse("Foo()"), null, 2));
-console.log(JSON.stringify(parse("Foo(Bar())"), null, 2));
-console.log(JSON.stringify(parse("Foo(Bar(1,2,3))"), null, 2));
+function example(code: string) {
+  console.log(JSON.stringify(parse(code), null, 2));
+}
+
+example("1");
+example("Foo()");
+example("Foo(Bar())");
+example("Foo(Bar(1,2,3))");
