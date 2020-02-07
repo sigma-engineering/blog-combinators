@@ -1,6 +1,6 @@
 # Writing a Parser Combinator from Scratch in TypeScript
 
-Writing parsers is hard. The problem is simple to describe: convert an input string into a ([syntax tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree)). The same language can be parsed by many different algorithms, and all have different tradeoffs with regards to speed, memory usage, readability, and maintainability. In this blog post, we'll explore the approach we take to parsing formulas in Sigma, using _parser combinators_. Parser combinators allow us to compose many simple functions together to define our entire grammar. The underlying algorithm is [Recursive Descent](https://en.wikipedia.org/wiki/Recursive_descent_parser) with backtracking, using techniques that are available to us in languages with first class functions like javascript.
+Writing parsers can be challenging. The problem is simple to describe: convert an input string into a ([syntax tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree)). The same language can be parsed by many different algorithms, and all have different tradeoffs with regards to speed, memory usage, readability, and maintainability. In this blog post, we'll explore the approach we take to parsing formulas in Sigma, using _parser combinators_. Parser combinators allow us to compose many simple functions together to define our entire grammar. The underlying algorithm is [Recursive Descent](https://en.wikipedia.org/wiki/Recursive_descent_parser) with backtracking, using techniques that are available to us in languages with first class functions like javascript.
 
 This article assumes the reader has some previous experience with basic parsing concepts.
 
@@ -30,7 +30,6 @@ parse("Foo(Bar(1,2,3))");
 ```
 
 We could describe this language in (loosely) [EBNF](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) like this:
-Here's our basic plan for the language again, let's compare it to the actual code we'll write to parse it.
 
 ```
 program = expr
