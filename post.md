@@ -423,4 +423,4 @@ All parsing approaches have pros and cons, and so do combinators:
 - Requires a language with first class functions
 - The type of the `sequence` combinator may be difficult to express strictly enough. It takes an array of parsers with mixed return types, and returns a list of results mapping directly to the output of those parsers, which is tricky to enforce in a type system. This can be overcome in typescript with function overloading, but it's outside the scope of this article, so I opted to use `any` and trust the ordering of parsers.
 
-The full source code for this blog post, including all the combinators used, is available on [github](https://www.github.com/sigmacomputing/todo-host-this-somewhere)
+The full source code for this blog post, including all the combinators used, is available on [github](https://github.com/sigma-engineering/blog-combinators)
