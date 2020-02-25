@@ -88,7 +88,8 @@ type Context = Readonly<{
 // our result types
 type Result<T> = Success<T> | Failure;
 
-// on success we'll return a value of type T, and a new Ctx (position in the string) to continue parsing from
+// on success we'll return a value of type T, and a new Ctx
+// (position in the string) to continue parsing from
 type Success<T> = Readonly<{
   success: true;
   value: T;
@@ -115,13 +116,16 @@ function failure<T>(ctx: Context, expected: string): Failure {
 Whoa, that's a bunch of types upfront, so lets give a concrete examples of how they'd work:
 
 ```ts
-function parseCow = ...; // implementation not important yet. it's looking for the word 'cow'
-const ctx = { text: "cow says moo", index: 0 }; // initializing a Ctx to pass in
+// implementation not important yet. it's looking for the word 'cow'
+function parseCow = ...;
+// initializing a Ctx to pass in
+const ctx = { text: "cow says moo", index: 0 };
 const result = parseCow(ctx);
 // { success: true, value: 'cow', ctx: {text: "cow says moo", index: 3}}
 //              ^            ^                                       ^
 //              |            |                                       |
-//            hooray       our result                the new input position, after the word 'cow'
+//            hooray       our result                the new input position,
+//                                                   after the word 'cow'
 ```
 
 How would we implement `parseCow`?
@@ -131,7 +135,8 @@ function parseCow(ctx: Context): Parser<string> {
   const match = "cow";
   const endIdx = ctx.index + match.length;
   if (ctx.text.substring(ctx.index, endIdx) === match) {
-    // returning a new ctx starting after the string we just consumed, along with the result of this method
+    // returning a new ctx starting after the string
+    // we just consumed, along with the result of this method
     return success({ ...ctx, index: endIdx }, match);
   } else {
     return failure(ctx, match);
@@ -168,21 +173,26 @@ const parseCowSentence = function(ctx) {
   const cowRes = cow(ctx);
   if (!cowRes.success) return cowRes;
 
-  const spaceRes1 = space(cowRes.ctx); // must pass the previous result's ctx into the next parser
+  // must pass the previous result's ctx into the next parser
+  const spaceRes1 = space(cowRes.ctx);
   if (!spaceRes1.success) return spaceRes1;
 
-  const saysRes = says(spaceRes1.ctx); // and again. you can see this is getting tedious and is error prone
+  // and again. you can see this is getting tedious and is error prone
+  const saysRes = says(spaceRes1.ctx);
   if (!saysRes.success) return saysRes;
 
-  const spaceRes2 = space(saysRes.ctx); // i'm getting really tired of typing this pattern
+  // i'm getting really tired of typing this pattern
+  const spaceRes2 = space(saysRes.ctx);
   if (!spaceRes2.success) return spaceRes2;
 
-  const mooRes = moo(spaceRes2.ctx); // please no more
+  // please no more
+  const mooRes = moo(spaceRes2.ctx);
   if (!mooRes.success) return mooRes;
 
   return success(mooRes.ctx, [
     // phew, we made it.
-    // i couldn't think of anything interesting to do with this grammar so let's just return the strings we parsed.
+    // i couldn't think of anything interesting to do with this
+    // grammar so let's just return the strings we parsed.
     cowRes.value,
     spaceRes1.value,
     saysRes.value,
@@ -212,13 +222,13 @@ function sequence<T>(parsers: Parser<T>[]): Parser<T[]> {
 ```
 
 ```
-                              ______________________________________________
-                             |                   Sequence:                  |
-        Input Context -----> |  Parser1 ---> Parser2 ---> ... ---> ParserN  | -----> Success
-                             |______________________________________________|
-                                                   \
-                                                    \
-                                                     -----> Failure
+                   ______________________________________________
+                  |                   Sequence:                  |
+Input Context --> |  Parser1 ---> Parser2 ---> ... ---> ParserN  | ---> Success
+                  |______________________________________________|
+                                         \
+                                          \
+                                            -----> Failure
 
          /
 (\__/)  /
@@ -287,11 +297,11 @@ function sequence<T>(parsers: Parser<T>[]): Parser<T[]> {
   ...
 }
 
-// try each matcher in order, starting from the same point in the input. return the first one that succeeds.
-// or return the failure that got furthest in the input string.
-// which failure to return is a matter of taste, we prefer the furthest failure because.
-// it tends be the most useful / complete error message.
-// any time you see several choices in a grammar, you'll use `any`
+// try each matcher in order, starting from the same point in the input.
+// return the first one that succeeds. or return the failure that got furthest
+// in the input string. which failure to return is a matter of taste, we prefer
+// the furthest failure because. it tends be the most useful / complete error
+// message. any time you see several choices in a grammar, you'll use `any`
 function any<T>(parsers: Parser<T>[]): Parser<T> {
   ...
 }
@@ -301,12 +311,15 @@ function optional<T>(parser: Parser<T>): Parser<T | null> {
   ...
 }
 
-// look for 0 or more of something, until we can't parse any more. note that this function never fails, it will instead succeed with an empty array.
+// look for 0 or more of something, until we can't parse any more. note that
+// this function never fails, it will instead succeed with an empty array.
 function many<T>(parser: Parser<T>): Parser<T[]> {
   ...
 }
 
-// a convenience method that will map a Success to callback, to let us do common things like build AST nodes from input strings. Failures are passed through untouched.
+// a convenience method that will map a Success to callback, to let us do
+// common things like build AST nodes from input strings.
+// Failures are passed through untouched.
 function map<A, B>(parser: Parser<A>, fn: (val: A) => B): Parser<B> {
   ...
 }
@@ -336,7 +349,8 @@ interface Call {
   args: Expr[];
 }
 
-// our top level parsing function that takes care of creating a `Ctx`, and unboxing the final AST (or throwing)
+// our top level parsing function that takes care of creating a `Ctx`,
+// and unboxing the final AST (or throwing)
 function parse(text: string): Expr {
   const res = expr({ text, index: 0 });
   if (res.success) return res.value;
@@ -361,21 +375,24 @@ const numberLiteral = map(
 // trailingArg = ',' arg
 const trailingArg = map(
   sequence<any>([str(","), expr]),
-  // we map to this function that throws away the leading comma, returning only the argument expression
+  // we map to this function that throws away the leading comma,
+  // returning only the argument expression
   ([_comma, argExpr]): Expr[] => argExpr
 );
 
 // args = expr ( trailingArg ) *
 const args = map(
   sequence<any>([expr, many(trailingArg)]),
-  // we combine the first argument and the trailing arguments into a single array
+  // we combine the first argument and the
+  // trailing arguments into a single array
   ([arg1, rest]): Expr[] => [arg1, ...rest]
 );
 
 // call = ident "(" args ")"
 const call = map(
   sequence<any>([ident, str("("), optional(args), str(")")]),
-  // we throw away the lparen and rparen, and use the function name and arguments to build a Call AST node.
+  // we throw away the lparen and rparen, and use the function name and
+  // arguments to build a Call AST node.
   ([fnName, _lparen, argList, _rparen]): Call => ({
     target: fnName,
     args: argList || []
