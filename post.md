@@ -108,7 +108,7 @@ function success<T>(ctx: Context, value: T): Success<T> {
   return { success: true, value, ctx };
 }
 
-function failure<T>(ctx: Context, expected: string): Failure {
+function failure(ctx: Context, expected: string): Failure {
   return { success: false, expected, ctx };
 }
 ```
